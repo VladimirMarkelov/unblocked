@@ -1,0 +1,7 @@
+/target
+**/*.rs.bk
+/_res
+/replays
+*.zip
+*.7z
+*.rar
