@@ -1,6 +1,7 @@
 #[cfg(windows)]
 extern crate windres;
 
+#[cfg(windows)]
 use windres::Build;
 
 #[cfg(windows)]

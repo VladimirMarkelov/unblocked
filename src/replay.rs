@@ -89,7 +89,7 @@ impl ReplayEngine {
     }
 
     pub fn load(&mut self, lvl: usize) {
-        let mut bytes: Vec<u8>;
+        let bytes: Vec<u8>;
         if lvl == DEMO_LEVEL {
             bytes = include_bytes!("../assets/level-0000.rpl").to_vec();
         } else {
