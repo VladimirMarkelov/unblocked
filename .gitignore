@@ -5,3 +5,6 @@
 *.zip
 *.7z
 *.rar
+*.dll
+*.exe
+*.a
