@@ -6,8 +6,6 @@ use tetra::graphics::Vec2;
 
 use crate::consts::{BRICK_SIZE, INFO_WIDTH, SCR_H, SCR_W};
 
-use dirs;
-
 const CONF_FILE: &str = "config.toml";
 const SCORE_FILE: &str = "hiscores.toml";
 const DEV_NAME: &str = "rionnag";

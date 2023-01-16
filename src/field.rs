@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate};
 use std::cell::RefCell;
 use std::f32::consts::PI;
 use std::fmt;
@@ -21,7 +21,7 @@ const BRICK_FALL_SPEED: f32 = 16.0;
 const ARROW_FRAMES: usize = 4;
 
 // developer best results - I know some of them can be improved
-static RECORDS: &'static [u32] = &[
+static RECORDS: &[u32] = &[
     4, // demo level
     4, 5, 4, 7, 4, 5, 6, 6, 9, 10, // 1-10
     11, 6, 6, 8, 8, 8, 8, 6, 7, 7, // 11-20
@@ -491,8 +491,8 @@ impl GameField {
 
     fn draw_background(&mut self, ctx: &mut Context) {
         let info_w = INFO_WIDTH as i32 * BRICK_SIZE as i32;
-        let bw = self.back_tx.width() as i32;
-        let bh = self.back_tx.height() as i32;
+        let bw = self.back_tx.width();
+        let bh = self.back_tx.height();
         let wn = (SCR_W as i32 - info_w + bw - 1) / bw;
         let hn = (SCR_H as i32 + bh - 1) / bh;
         for y in 0..hn {
@@ -525,7 +525,8 @@ impl GameField {
         graphics::draw(ctx, &self.throws_tx, DrawParams::new().position(Vec2::new(x, y)));
         let tp = TextParams::new().with_width(3).with_right_align();
         let n = clamp(self.score, 999);
-        self.txt_num.draw(ctx, first_num_pos(x, y), n, tp.clone());
+        self.txt_num.draw(ctx, first_num_pos(x, y), n, tp);
+        #[allow(clippy::comparison_chain)]
         if self.lvl_score.hiscore != 0 {
             let dev_hiscore =
                 if self.level >= RECORD_LEN || self.level == 0 { self.lvl_score.hiscore } else { RECORDS[self.level] };
@@ -535,7 +536,7 @@ impl GameField {
             } else if self.lvl_score.hiscore > dev_hiscore {
                 tp_hscore = tp_hscore.with_color(Color::rgb(0.0, 0.3, 0.8));
             }
-            self.txt_num.draw(ctx, second_num_pos(x, y), self.lvl_score.hiscore as u32, tp_hscore);
+            self.txt_num.draw(ctx, second_num_pos(x, y), self.lvl_score.hiscore, tp_hscore);
         }
 
         // level # in game, replay progress in demo
@@ -573,7 +574,8 @@ impl GameField {
         graphics::draw(ctx, &self.solved_tx, DrawParams::new().position(Vec2::new(x, y)));
         if self.lvl_score.first_win > 0 {
             let dw = digit_size.x;
-            let dt: NaiveDate = NaiveDate::from_num_days_from_ce(self.lvl_score.first_win);
+            let dt: NaiveDate = NaiveDate::from_num_days_from_ce_opt(self.lvl_score.first_win)
+                .unwrap_or_else(|| Local::now().date_naive());
             let mut tp = TextParams::new().with_width(2).with_leading_zeroes();
             // change color if help had been used before the level was solved
             if self.lvl_score.help_used {
@@ -581,10 +583,10 @@ impl GameField {
             }
             let year = (dt.year() as u32) % 100;
             self.txt_num.draw(ctx, first_num_pos(x, y), year, tp.clone());
-            let month = dt.month() as u32;
+            let month = dt.month();
             self.txt_num.draw(ctx, first_num_pos(x + dw * 2.5, y), month, tp.clone());
-            let day = dt.day() as u32;
-            self.txt_num.draw(ctx, first_num_pos(x + dw * 5.0, y), day, tp.clone());
+            let day = dt.day();
+            self.txt_num.draw(ctx, first_num_pos(x + dw * 5.0, y), day, tp);
         };
     }
 
@@ -631,7 +633,7 @@ impl GameField {
         if self.player.is_moving() {
             return;
         }
-        if self.player.y < (HEIGHT as usize) - 2 {
+        if self.player.y < HEIGHT - 2 {
             self.player.y += 1;
             self.player.scr_pos = b2s(self.player.x, self.player.y);
         }

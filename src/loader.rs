@@ -90,7 +90,7 @@ impl Loader {
             );
         }
         let max_w: usize = level.puzzle.iter().fold(0, |mx, x| if mx < x.len() { x.len() } else { mx });
-        if max_w > MAX_SIZE || max_w < 2 {
+        if !(2..=MAX_SIZE).contains(&max_w) {
             panic!("Level {}: puzzle must has between 2 and {} columns, found {} columns", lvl_num, max_size, max_w);
         }
         for i in 0..max_w {
@@ -158,7 +158,7 @@ impl Loader {
         for s in pset.lines() {
             let s = s.trim_end();
             // empty line found. If previous section was corner pattern, switch to puzzle mode
-            if s == "" {
+            if s.is_empty() {
                 if in_corner {
                     in_corner = false;
                     in_puzzle = true;
@@ -173,7 +173,7 @@ impl Loader {
             if s.starts_with("start:") {
                 let s1 = s.trim_start_matches("start:");
                 let s1 = s1.trim_start();
-                if s1 == "" {
+                if s1.is_empty() {
                     continue;
                 }
                 lvl.first = c2brick(s1.chars().next().unwrap());

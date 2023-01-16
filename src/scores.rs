@@ -4,24 +4,17 @@ use std::path::PathBuf;
 
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
-use toml;
 
 use crate::common::score_path;
 
 // a lever score info
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize, Default)]
 pub struct Score {
     pub attempts: u32,   // attempts to solve the puzzle
     pub wins: u32,       // puzzle solved N times
     pub hiscore: u32,    // best score
     pub first_win: i32,  // date of the first win
     pub help_used: bool, // help was used before any win
-}
-
-impl Default for Score {
-    fn default() -> Score {
-        Score { attempts: 0, wins: 0, hiscore: 0, first_win: 0, help_used: false }
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
