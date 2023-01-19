@@ -1,4 +1,5 @@
-use tetra::graphics::{self, Color, DrawParams, Rectangle, Texture, Vec2};
+use tetra::graphics::{Color, DrawParams, Rectangle, Texture};
+use tetra::math::Vec2;
 use tetra::Context;
 
 // A struct that can draw a number digit by digit using a texture with 10 digits
@@ -42,17 +43,17 @@ impl TextParams {
 
 impl TextNumber {
     pub fn new(ctx: &mut Context, bytes: &[u8]) -> tetra::Result<TextNumber> {
-        let mut tx = TextNumber { digits: Texture::from_file_data(ctx, bytes)?, digit_w: 0.0, digit_h: 0.0 };
+        let mut tx = TextNumber { digits: Texture::from_encoded(ctx, bytes)?, digit_w: 0.0, digit_h: 0.0 };
         tx.digit_w = (tx.digits.width() / 10) as f32;
         tx.digit_h = tx.digits.height() as f32;
         Ok(tx)
     }
 
-    pub fn digit_size(&self) -> Vec2 {
+    pub fn digit_size(&self) -> Vec2<f32> {
         Vec2::new(self.digit_w, self.digit_h)
     }
 
-    pub fn draw(&mut self, ctx: &mut Context, start_pos: Vec2, n: u32, param: TextParams) {
+    pub fn draw(&mut self, ctx: &mut Context, start_pos: Vec2<f32>, n: u32, param: TextParams) {
         let mut d: Vec<u32> = Vec::new();
 
         // split a number into its digits
@@ -75,7 +76,7 @@ impl TextNumber {
         }
 
         // fix starting position if the number is right aligned
-        let mut p: Vec2 = start_pos;
+        let mut p: Vec2<f32> = start_pos;
         if param.width != 0 && param.right_align && d.len() < param.width as usize {
             p = Vec2::new(p.x + ((param.width as usize) - d.len()) as f32 * self.digit_w, p.y);
         }
@@ -83,11 +84,11 @@ impl TextNumber {
         // show digits one by one
         for digit in d {
             let clip = Rectangle::new(digit as f32 * self.digit_w, 0.0, self.digit_w, self.digit_h);
-            let mut dp = DrawParams::new().position(p).clip(clip);
+            let mut dp = DrawParams::new().position(p);
             if let Some(c) = param.color {
                 dp = dp.color(c);
             }
-            graphics::draw(ctx, &self.digits, dp);
+            self.digits.draw_region(ctx, clip, dp);
             p = Vec2::new(p.x + self.digit_w, p.y);
         }
     }

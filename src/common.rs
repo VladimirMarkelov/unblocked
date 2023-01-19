@@ -2,7 +2,7 @@ use std::env::current_exe;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use tetra::graphics::Vec2;
+use tetra::math::Vec2;
 
 use crate::consts::{BRICK_SIZE, INFO_WIDTH, SCR_H, SCR_W};
 
@@ -113,14 +113,14 @@ pub fn ensure_path_exists(p: &Path) -> bool {
 }
 
 // Returns position for an object to put it in the center of the screen
-pub fn center_screen(width: f32, height: f32) -> Vec2 {
+pub fn center_screen(width: f32, height: f32) -> Vec2<f32> {
     let x = (SCR_W - width) / 2.0;
     let y = (SCR_H - height) / 2.0;
     Vec2::new(x, y)
 }
 
 // Returns position for an object to put it in the center of the play area
-pub fn center_play_area(width: f32, height: f32) -> Vec2 {
+pub fn center_play_area(width: f32, height: f32) -> Vec2<f32> {
     let info_width = INFO_WIDTH as f32 * BRICK_SIZE;
     let x = (SCR_W - info_width - width) / 2.0;
     let y = (SCR_H - height) / 2.0;

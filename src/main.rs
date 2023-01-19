@@ -14,7 +14,6 @@ mod scenes;
 mod scores;
 mod textnum;
 
-use crate::mainmenu::TitleScene;
 use crate::scenes::SceneManager;
 
 fn main() -> tetra::Result {
@@ -22,7 +21,6 @@ fn main() -> tetra::Result {
         .resizable(true)
         .quit_on_escape(false)
         .show_mouse(true)
-        .tick_rate(60.0)
         .build()?
-        .run_with(|ctx| Ok(SceneManager::new(Box::new(TitleScene::new(ctx)?))))
+        .run(SceneManager::new)
 }

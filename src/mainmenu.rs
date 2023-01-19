@@ -1,8 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 
-use tetra::graphics::{self, Animation, Color, DrawParams, Rectangle, ScreenScaling, Texture, Vec2};
+use tetra::graphics::{self, animation, Color, DrawParams, Rectangle, Texture};
 use tetra::input::{self, Key};
+use tetra::math::Vec2;
 use tetra::Context;
 
 use crate::common::digits;
@@ -27,8 +29,8 @@ const POINTER_SHIFT: f32 = (LBL_HEIGHT - POINTER_H) * 0.5;
 const LVL_MENU_ITEM: usize = 1;
 
 pub struct TitleScene {
-    item_pos: [Vec2; 4],  // positions of all 4 menu items
-    animation: Animation, // arrow
+    item_pos: [Vec2<f32>; 4],        // positions of all 4 menu items
+    animation: animation::Animation, // arrow
     menu_tx: Texture,
     menu_id: usize,
     txt_num: TextNumber,
@@ -84,22 +86,18 @@ impl TitleScene {
                 Vec2::new(half_scr_w - (widths[i] + ext_widths[i]) * 0.5, first + i as f32 * (LBL_HEIGHT + line_gap));
         }
 
-        // with this scaling the drawn area is scaled with the window.
-        // So a user can make game window fullscreen and all sprites are scaled as well
-        graphics::set_scaling(ctx, ScreenScaling::ShowAll);
-
         let arrow_image = include_bytes!("../assets/menu_arrow.png");
         let menu_image = include_bytes!("../assets/menu_items.png");
 
         Ok(TitleScene {
             item_pos: v,
-            animation: Animation::new(
-                Texture::from_file_data(ctx, arrow_image)?,
+            animation: animation::Animation::new(
+                Texture::from_encoded(ctx, arrow_image)?,
                 Rectangle::row(0.0, 0.0, POINTER_W, POINTER_H).take(POINTER_FRAMES).collect(),
-                7,
+                Duration::from_millis(100),
             ),
 
-            menu_tx: Texture::from_file_data(ctx, menu_image)?,
+            menu_tx: Texture::from_encoded(ctx, menu_image)?,
             menu_id: 0,
             txt_num: txt,
 
@@ -115,7 +113,7 @@ impl TitleScene {
 
 impl Scene for TitleScene {
     fn update(&mut self, ctx: &mut Context) -> tetra::Result<Transition> {
-        self.animation.tick();
+        self.animation.advance(ctx);
         // Key processing:
         // - Up and Down to select a menu item
         // - Space and Return to execute the selected menu item
@@ -138,7 +136,7 @@ impl Scene for TitleScene {
             }
             Ok(Transition::None)
         } else if input::is_key_pressed(ctx, Key::Left) && self.menu_id == 1 {
-            let diff = if input::is_key_down(ctx, Key::RShift) || input::is_key_down(ctx, Key::LShift) {
+            let diff = if input::is_key_down(ctx, Key::RightShift) || input::is_key_down(ctx, Key::LeftShift) {
                 10usize
             } else {
                 1usize
@@ -149,7 +147,7 @@ impl Scene for TitleScene {
             }
             Ok(Transition::None)
         } else if input::is_key_pressed(ctx, Key::Right) && self.menu_id == 1 {
-            let diff = if input::is_key_down(ctx, Key::RShift) || input::is_key_down(ctx, Key::LShift) {
+            let diff = if input::is_key_down(ctx, Key::RightShift) || input::is_key_down(ctx, Key::LeftShift) {
                 10usize
             } else {
                 1usize
@@ -159,7 +157,10 @@ impl Scene for TitleScene {
                 sc.inc_curr_level(diff);
             }
             Ok(Transition::None)
-        } else if input::is_key_pressed(ctx, Key::Space) || input::is_key_pressed(ctx, Key::Return) {
+        } else if input::is_key_pressed(ctx, Key::Space)
+            || input::is_key_pressed(ctx, Key::Enter)
+            || input::is_key_pressed(ctx, Key::NumPadEnter)
+        {
             if self.menu_id == 3 {
                 Ok(Transition::Pop)
             } else if self.menu_id == 0 || self.menu_id == 1 {
@@ -179,33 +180,26 @@ impl Scene for TitleScene {
         }
     }
 
-    fn draw(&mut self, ctx: &mut Context, _dt: f64) -> tetra::Result<Transition> {
+    fn draw(&mut self, ctx: &mut Context) -> tetra::Result<Transition> {
         graphics::clear(ctx, Color::rgb(0.094, 0.11, 0.16));
 
         let mut start: f32 = 0.0;
 
         // show main menu items
         for i in 0..4 {
-            graphics::draw(
-                ctx,
-                &self.menu_tx,
-                DrawParams::new().position(self.item_pos[i]).clip(Rectangle::new(
-                    start,
-                    0.0,
-                    self.lbl_width[i],
-                    LBL_HEIGHT,
-                )),
-            );
+            let clip = Rectangle::new(start, 0.0, self.lbl_width[i], LBL_HEIGHT);
+            let dp = DrawParams::new().position(self.item_pos[i]);
+            self.menu_tx.draw_region(ctx, clip, dp);
             start += self.lbl_width[i];
         }
 
         // show "arrows" to the left and to the right from the selected menu item
         let pos =
             Vec2::new(self.item_pos[self.menu_id].x - POINTER_W - 5.0, self.item_pos[self.menu_id].y + POINTER_SHIFT);
-        graphics::draw(ctx, &self.animation, DrawParams::new().position(pos).color(Color::rgb(0.0, 1.0, 1.0)));
+        self.animation.draw(ctx, DrawParams::new().position(pos).color(Color::rgb(0.0, 1.0, 1.0)));
         let wdth = self.lbl_width[self.menu_id] + self.lbl_ext_width[self.menu_id] + self.lbl_gap[self.menu_id];
         let pos = Vec2::new(self.item_pos[self.menu_id].x + wdth + 5.0, self.item_pos[self.menu_id].y + POINTER_SHIFT);
-        graphics::draw(ctx, &self.animation, DrawParams::new().position(pos).color(Color::rgb(0.0, 1.0, 1.0)));
+        self.animation.draw(ctx, DrawParams::new().position(pos).color(Color::rgb(0.0, 1.0, 1.0)));
 
         // show the level number to start playing from
         let digits = digits(self.scores.borrow().max_avail_level());

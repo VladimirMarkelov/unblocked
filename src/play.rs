@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use tetra::graphics::{self, DrawParams, Rectangle, Texture};
+use tetra::graphics::{DrawParams, Rectangle, Texture};
 use tetra::input::{self, Key};
 use tetra::Context;
 
@@ -36,7 +36,7 @@ impl PlayScene {
             loader: l,
             scores: s,
             field: GameField::new(ctx, ld, sc, false)?,
-            state_tx: Texture::from_file_data(ctx, state_image)?,
+            state_tx: Texture::from_encoded(ctx, state_image)?,
             replay: ReplayEngine::new(),
             tick: 0,
         };
@@ -58,7 +58,8 @@ impl PlayScene {
         };
 
         let pos = center_screen(w, h);
-        graphics::draw(ctx, &self.state_tx, DrawParams::new().position(pos).clip(clip_rect));
+        let dp = DrawParams::new().position(pos);
+        self.state_tx.draw_region(ctx, clip_rect, dp);
     }
 }
 
@@ -124,8 +125,8 @@ impl Scene for PlayScene {
         field_res
     }
 
-    fn draw(&mut self, ctx: &mut Context, dt: f64) -> tetra::Result<Transition> {
-        let _ = self.field.draw(ctx, dt)?;
+    fn draw(&mut self, ctx: &mut Context) -> tetra::Result<Transition> {
+        let _ = self.field.draw(ctx)?;
         self.draw_deco(ctx);
         Ok(Transition::None)
     }

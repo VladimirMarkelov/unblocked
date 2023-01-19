@@ -1,8 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use tetra::graphics::{self, DrawParams, Rectangle, Texture, Vec2};
+use tetra::graphics::{DrawParams, Rectangle, Texture};
 use tetra::input::{self, Key};
+use tetra::math::Vec2;
 use tetra::Context;
 
 use crate::common::{center_play_area, center_screen};
@@ -31,9 +32,9 @@ impl DemoScene {
         let info_image = include_bytes!("../assets/rules.png");
         let mut p = DemoScene {
             field: GameField::new(ctx, ld, sc, true)?,
-            state_tx: Texture::from_file_data(ctx, state_image)?,
-            progress_tx: Texture::from_file_data(ctx, progress_image)?,
-            info_tx: Texture::from_file_data(ctx, info_image)?,
+            state_tx: Texture::from_encoded(ctx, state_image)?,
+            progress_tx: Texture::from_encoded(ctx, progress_image)?,
+            info_tx: Texture::from_encoded(ctx, info_image)?,
             replay: ReplayEngine::new(),
             tick: 0,
             rules_shown: lvl == DEMO_LEVEL,
@@ -55,7 +56,8 @@ impl DemoScene {
             _ => Rectangle::new(0.0, h * PLATE_REPLAY_COMPLETED, w, h),
         };
 
-        graphics::draw(ctx, &self.state_tx, DrawParams::new().position(center_screen(w, h)).clip(clip_rect));
+        let dp = DrawParams::new().position(center_screen(w, h));
+        self.state_tx.draw_region(ctx, clip_rect, dp);
     }
 
     // show progress bar for replay
@@ -70,7 +72,8 @@ impl DemoScene {
         let w = self.progress_tx.width() * progress / 100;
         let h = self.progress_tx.height() as f32;
         let clip_rect = Rectangle::new(0.0, 0.0, w as f32, h);
-        graphics::draw(ctx, &self.progress_tx, DrawParams::new().position(Vec2::new(x, y)).clip(clip_rect));
+        let dp = DrawParams::new().position(Vec2::new(x, y));
+        self.progress_tx.draw_region(ctx, clip_rect, dp);
     }
 }
 
@@ -111,8 +114,9 @@ impl Scene for DemoScene {
             return Ok(Transition::Pop);
         }
 
-        if (input::is_key_pressed(ctx, Key::Space) || input::is_key_pressed(ctx, Key::Return))
-            && self.field.state == GameState::Winner
+        if input::is_key_pressed(ctx, Key::Space)
+            || input::is_key_pressed(ctx, Key::Enter)
+            || input::is_key_pressed(ctx, Key::NumPadEnter) && self.field.state == GameState::Winner
         {
             return Ok(Transition::Pop);
         }
@@ -123,8 +127,8 @@ impl Scene for DemoScene {
         Ok(Transition::None)
     }
 
-    fn draw(&mut self, ctx: &mut Context, dt: f64) -> tetra::Result<Transition> {
-        let _ = self.field.draw(ctx, dt)?;
+    fn draw(&mut self, ctx: &mut Context) -> tetra::Result<Transition> {
+        let _ = self.field.draw(ctx)?;
         self.draw_deco(ctx);
         self.draw_progress(ctx);
 
@@ -132,7 +136,7 @@ impl Scene for DemoScene {
             let w = self.info_tx.width() as f32;
             let h = self.info_tx.width() as f32;
             let pos = center_play_area(w, h);
-            graphics::draw(ctx, &self.info_tx, DrawParams::new().position(pos));
+            self.info_tx.draw(ctx, DrawParams::new().position(pos));
         }
 
         Ok(Transition::None)

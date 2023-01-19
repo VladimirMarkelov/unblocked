@@ -3,9 +3,11 @@ use std::cell::RefCell;
 use std::f32::consts::PI;
 use std::fmt;
 use std::rc::Rc;
+use std::time::Duration;
 
-use tetra::graphics::{self, Animation, Color, DrawParams, Rectangle, Texture, Vec2};
+use tetra::graphics::{self, animation, Color, DrawParams, Rectangle, Texture};
 use tetra::input::{self, Key};
+use tetra::math::Vec2;
 use tetra::Context;
 
 use crate::common::{clamp, digits};
@@ -96,11 +98,11 @@ struct Brick {
     // position in whole blocks
     x: usize,
     y: usize,
-    scr_pos: Vec2,   // exact position in points
-    kind: BrickKind, // kind of block
-    vel: Vec2,       // velocity
-    ticks: u32,      // ticks for moving (shift a block by velocity every N ticks)
-    limit: Vec2,     // stop moving the block when it reaches the limit
+    scr_pos: Vec2<f32>, // exact position in points
+    kind: BrickKind,    // kind of block
+    vel: Vec2<f32>,     // velocity
+    ticks: u32,         // ticks for moving (shift a block by velocity every N ticks)
+    limit: Vec2<f32>,   // stop moving the block when it reaches the limit
 }
 
 impl Brick {
@@ -115,7 +117,7 @@ impl Brick {
             limit: Vec2::new(0.0, 0.0),
         }
     }
-    fn start_moving(&mut self, vel: Vec2, limit: Vec2) {
+    fn start_moving(&mut self, vel: Vec2<f32>, limit: Vec2<f32>) {
         self.vel = vel;
         self.limit = limit;
         self.ticks = TICKS;
@@ -179,7 +181,7 @@ impl Brick {
 }
 
 // convert coordinate in whole blocks into screen coordinates
-fn b2s<T: Into<usize>>(x: T, y: T) -> Vec2 {
+fn b2s<T: Into<usize>>(x: T, y: T) -> Vec2<f32> {
     Vec2::new(x.into() as f32 * BRICK_SIZE, y.into() as f32 * BRICK_SIZE)
 }
 // puzzle is a one-dimensional array, the function converts X,Y coordinate into
@@ -203,9 +205,9 @@ pub struct GameField {
 
     // calculated and orientation of an arrow that shows the first block that
     // player's block would hit after throwing
-    arrow_pos: Vec2,
+    arrow_pos: Vec2<f32>,
     arrow_down: bool,
-    arrow_animation: Animation,
+    arrow_animation: animation::Animation,
 
     // kind of a block that player's block would hit after throwing
     first_brick: BrickKind,
@@ -255,17 +257,17 @@ impl GameField {
             loader,
             scores,
 
-            brick_tx: Texture::from_file_data(ctx, brick_image)?,
-            back_tx: Texture::from_file_data(ctx, background_image)?,
-            level_no_tx: Texture::from_file_data(ctx, level_no_image)?,
-            throws_tx: Texture::from_file_data(ctx, throws_image)?,
-            attempts_tx: Texture::from_file_data(ctx, attempts_image)?,
-            solved_tx: Texture::from_file_data(ctx, solved_image)?,
+            brick_tx: Texture::from_encoded(ctx, brick_image)?,
+            back_tx: Texture::from_encoded(ctx, background_image)?,
+            level_no_tx: Texture::from_encoded(ctx, level_no_image)?,
+            throws_tx: Texture::from_encoded(ctx, throws_image)?,
+            attempts_tx: Texture::from_encoded(ctx, attempts_image)?,
+            solved_tx: Texture::from_encoded(ctx, solved_image)?,
 
-            arrow_animation: Animation::new(
-                Texture::from_file_data(ctx, arrow_image)?,
+            arrow_animation: animation::Animation::new(
+                Texture::from_encoded(ctx, arrow_image)?,
                 Rectangle::row(0.0, 0.0, BRICK_SIZE, BRICK_SIZE).take(ARROW_FRAMES).collect(),
-                60 / 6, // 60HZ to a frame per 250ms
+                Duration::from_millis(150), // 60HZ to a frame per 250ms
             ),
         })
     }
@@ -436,7 +438,7 @@ impl GameField {
     }
 
     pub fn update(&mut self, ctx: &mut Context) -> tetra::Result<Transition> {
-        self.arrow_animation.tick();
+        self.arrow_animation.advance(ctx);
         for b in self.bricks.iter_mut() {
             b.update();
         }
@@ -453,7 +455,10 @@ impl GameField {
 
         // reach here only if the level solved or failed or demo replay finished.
         // Update hiscores if it is not in DEMO mode
-        if input::is_key_pressed(ctx, Key::Space) || input::is_key_pressed(ctx, Key::Return) {
+        if input::is_key_pressed(ctx, Key::Space)
+            || input::is_key_pressed(ctx, Key::Enter)
+            || input::is_key_pressed(ctx, Key::NumPadEnter)
+        {
             match self.state {
                 GameState::Completed => {
                     if !self.demoing {
@@ -498,7 +503,7 @@ impl GameField {
         for y in 0..hn {
             for x in 0..wn {
                 let pos = Vec2::new((x * bw) as f32, (y * bh) as f32);
-                graphics::draw(ctx, &self.back_tx, DrawParams::new().position(pos));
+                self.back_tx.draw(ctx, DrawParams::new().position(pos));
             }
         }
     }
@@ -512,17 +517,18 @@ impl GameField {
                 }
                 let clip_rect = Rectangle::new(0.0, (t - 1) as f32 * BRICK_SIZE, BRICK_SIZE, BRICK_SIZE);
                 let pos = b2s(x, y);
-                graphics::draw(ctx, &self.brick_tx, DrawParams::new().position(pos).clip(clip_rect));
+                let dp = DrawParams::new().position(pos);
+                self.brick_tx.draw_region(ctx, clip_rect, dp);
             }
         }
 
-        let first_num_pos = |x: f32, y: f32| -> Vec2 { Vec2::new(x + BRICK_SIZE * 0.25, y + 10.0) };
-        let second_num_pos = |x: f32, y: f32| -> Vec2 { Vec2::new(x + BRICK_SIZE * 2.0, y + 10.0) };
+        let first_num_pos = |x: f32, y: f32| -> Vec2<f32> { Vec2::new(x + BRICK_SIZE * 0.25, y + 10.0) };
+        let second_num_pos = |x: f32, y: f32| -> Vec2<f32> { Vec2::new(x + BRICK_SIZE * 2.0, y + 10.0) };
 
         // score
         let x = ((WIDTH - INFO_WIDTH) as f32 + 0.5) * BRICK_SIZE;
         let y = BRICK_SIZE * 3.0;
-        graphics::draw(ctx, &self.throws_tx, DrawParams::new().position(Vec2::new(x, y)));
+        self.throws_tx.draw(ctx, DrawParams::new().position(Vec2::new(x, y)));
         let tp = TextParams::new().with_width(3).with_right_align();
         let n = clamp(self.score, 999);
         self.txt_num.draw(ctx, first_num_pos(x, y), n, tp);
@@ -541,7 +547,7 @@ impl GameField {
 
         // level # in game, replay progress in demo
         let y = BRICK_SIZE * 1.0;
-        graphics::draw(ctx, &self.level_no_tx, DrawParams::new().position(Vec2::new(x, y)));
+        self.level_no_tx.draw(ctx, DrawParams::new().position(Vec2::new(x, y)));
 
         if self.demoing {
             return;
@@ -562,7 +568,7 @@ impl GameField {
 
         // attempts
         let y = BRICK_SIZE * 5.0;
-        graphics::draw(ctx, &self.attempts_tx, DrawParams::new().position(Vec2::new(x, y)));
+        self.attempts_tx.draw(ctx, DrawParams::new().position(Vec2::new(x, y)));
         let tp = TextParams::new().with_width(3).with_right_align();
         let att = clamp(self.lvl_score.attempts, 999);
         let win = clamp(self.lvl_score.wins, 999);
@@ -571,7 +577,7 @@ impl GameField {
 
         // solved on
         let y = BRICK_SIZE * 7.0;
-        graphics::draw(ctx, &self.solved_tx, DrawParams::new().position(Vec2::new(x, y)));
+        self.solved_tx.draw(ctx, DrawParams::new().position(Vec2::new(x, y)));
         if self.lvl_score.first_win > 0 {
             let dw = digit_size.x;
             let dt: NaiveDate = NaiveDate::from_num_days_from_ce_opt(self.lvl_score.first_win)
@@ -593,13 +599,15 @@ impl GameField {
     fn draw_bricks(&mut self, ctx: &mut Context) {
         for b in self.bricks.iter() {
             let clip_rect = Rectangle::new(0.0, brick2shift(b.kind), BRICK_SIZE, BRICK_SIZE);
-            graphics::draw(ctx, &self.brick_tx, DrawParams::new().position(b.scr_pos).clip(clip_rect));
+            let dp = DrawParams::new().position(b.scr_pos);
+            self.brick_tx.draw_region(ctx, clip_rect, dp);
         }
     }
 
     fn draw_player(&mut self, ctx: &mut Context) {
         let clip_rect = Rectangle::new(0.0, brick2shift(self.player.kind), BRICK_SIZE, BRICK_SIZE);
-        graphics::draw(ctx, &self.brick_tx, DrawParams::new().position(self.player.scr_pos).clip(clip_rect));
+        let dp = DrawParams::new().position(self.player.scr_pos);
+        self.brick_tx.draw_region(ctx, clip_rect, dp);
 
         if !self.player.is_moving() {
             let color = if self.first_brick != BrickKind::None
@@ -611,15 +619,11 @@ impl GameField {
             };
             let rotate: f32 = if self.arrow_down { 0.0 } else { PI / 2.0 };
 
-            graphics::draw(
-                ctx,
-                &self.arrow_animation,
-                DrawParams::new().position(self.arrow_pos).color(color).rotation(rotate),
-            );
+            self.arrow_animation.draw(ctx, DrawParams::new().position(self.arrow_pos).color(color).rotation(rotate));
         }
     }
 
-    pub fn draw(&mut self, ctx: &mut Context, _dt: f64) -> tetra::Result<Transition> {
+    pub fn draw(&mut self, ctx: &mut Context) -> tetra::Result<Transition> {
         graphics::clear(ctx, Color::rgb(0.094, 0.11, 0.16));
         self.draw_background(ctx);
         self.draw_static(ctx);
